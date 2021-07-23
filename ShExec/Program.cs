@@ -11,6 +11,10 @@ namespace ShExec
         {
             try
             {
+                if (args.Length == 0)
+                {
+                    throw new Exception("You must supply a filename to pass to ShellExecute");
+                }
                 var psi = new ProcessStartInfo
                 {
                     FileName = args[0],
