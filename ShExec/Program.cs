@@ -11,20 +11,23 @@ namespace ShExec
 
     internal class Program
     {
+        private const string AppKeys = @"HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths";
         private static void Main(string[] args)
         {
             try
             {
                 if (args.Length == 0)
                 {
-                    throw new Exception("You must supply a filename to pass to ShellExecute");
+                    PrintUsageAndExit();
                 }
+                var normalArgs = args.Where(x => x[0] != '-').ToArray();
+                var optionArgs = args.Where(x => x[0] == '-').SelectMany(x => x.Skip(1)).ToHashSet();
 
-                var appKeys = @"HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths";
+
 
                 var appDict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
 
-                foreach (var key in RegLib.GetSubKeyNames(appKeys))
+                foreach (var key in RegLib.GetSubKeyNames(AppKeys))
                 {
                     // get app name:
                     var k = Path.GetFileNameWithoutExtension(key);
@@ -32,6 +35,29 @@ namespace ShExec
 
                     // get app path:
                     var value = RegLib.GetDefaultValue(key);
+                    appDict[k] = value;
+                }
+
+                if (optionArgs.Contains('l'))
+                {
+                    foreach (var entry in appDict)
+                    {
+                        Console.WriteLine($"{entry.Key} -> {entry.Value}");
+                    }
+
+                    Environment.Exit(0);
+                }
+
+                if (optionArgs.Contains('f'))
+                {
+                    foreach (var entry in appDict)
+                    {
+                        Console.WriteLine($"{entry.Key.ToLower()} {{");
+                        Console.WriteLine($"    shexec {entry.Key.ToLower()}");
+                        Console.WriteLine("}");
+                    }
+
+                    Environment.Exit(0);
                 }
 
                 if (!appDict.TryGetValue(args[0], out string appPath))
@@ -55,6 +81,20 @@ namespace ShExec
                 Console.Error.WriteLine($"{progname} Error: {ex.Message}");
             }
 
+        }
+
+        private static void PrintUsageAndExit()
+        {
+            Console.WriteLine($"Shexec: start Windows programs from git-bash");
+            Console.WriteLine();
+            Console.WriteLine("Usage:");
+            Console.WriteLine("    shexec <program> [<arguments>]");
+            Console.WriteLine("    shexec -l");
+            Console.WriteLine("    shexec -f");
+            Console.WriteLine();
+            Console.WriteLine("Options:");
+            Console.WriteLine($"    -l list all programs in {AppKeys}");
+            Console.WriteLine($"    -f generate bash functions for all programs in {AppKeys}");
         }
     }
 }
